@@ -3,26 +3,27 @@
 import { ArrowLeft, Check, Eye, EyeOff, LockKeyhole, Mail, User } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useLocale } from "../LocaleProvider/LocaleProvider";
+import { useAuth } from "../AuthProvider/AuthProvider";
 import styles from "./AuthModal.module.scss";
 
 export type AuthMode = "login" | "signup";
-export type Traveler = { name: string; email: string };
-
 type Props = {
   mode: AuthMode;
   open: boolean;
   onClose: () => void;
-  onSuccess: (traveler: Traveler) => void;
+  onSuccess: () => void;
 };
 
 export default function AuthModal({ mode, open, onClose, onSuccess }: Props) {
   const { locale } = useLocale();
+  const { signIn, signUp } = useAuth();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [activeMode, setActiveMode] = useState(mode);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => setActiveMode(mode), [mode]);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -37,20 +38,28 @@ export default function AuthModal({ mode, open, onClose, onSuccess }: Props) {
 
   if (!open) return null;
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const email = String(data.get("email") || "").trim();
     const password = String(data.get("password") || "");
     const name = String(data.get("name") || email.split("@")[0] || "Traveler").trim();
     const confirmation = String(data.get("confirmation") || "");
     if (password.length < 8) return setError(locale === "ru" ? "Пароль должен содержать не менее 8 символов." : "Use at least 8 characters for your password.");
     if (activeMode === "signup" && password !== confirmation) return setError(locale === "ru" ? "Пароли пока не совпадают." : "The passwords do not match yet.");
-    const traveler = { name, email };
-    localStorage.setItem("travellian-user", JSON.stringify(traveler));
+    setSubmitting(true);
+    const result = activeMode === "signup" ? await signUp(name, email, password) : await signIn(email, password);
+    setSubmitting(false);
+    if (result.error) return setError(locale === "ru" ? "Не удалось войти. Проверьте email и пароль." : "Could not sign in. Check your email and password.");
     setError("");
-    onSuccess(traveler);
-    event.currentTarget.reset();
+    if (result.needsConfirmation) {
+      setNotice(locale === "ru" ? "Проверьте почту и подтвердите регистрацию, затем войдите." : "Check your email to confirm registration, then sign in.");
+      return;
+    }
+    setNotice("");
+    onSuccess();
+    form.reset();
   }
 
   return (
@@ -76,9 +85,10 @@ export default function AuthModal({ mode, open, onClose, onSuccess }: Props) {
             <label><span><LockKeyhole size={16} /> {locale === "ru" ? "Пароль" : "Password"}</span><div className={styles.password}><input name="password" type={showPassword ? "text" : "password"} autoComplete={activeMode === "signup" ? "new-password" : "current-password"} placeholder={locale === "ru" ? "Не менее 8 символов" : "8+ characters"} required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
             {activeMode === "signup" && <label><span><LockKeyhole size={16} /> {locale === "ru" ? "Повторите пароль" : "Confirm password"}</span><input name="confirmation" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder={locale === "ru" ? "Повторите пароль" : "Repeat password"} required /></label>}
             {error && <p className={styles.error} role="alert">{error}</p>}
-            <button className={styles.submit} type="submit">{activeMode === "signup" ? (locale === "ru" ? "Создать профиль" : "Create profile") : (locale === "ru" ? "Войти" : "Log in")}</button>
+            {notice && <p className={styles.intro} role="status">{notice}</p>}
+            <button className={styles.submit} type="submit" disabled={submitting}>{submitting ? (locale === "ru" ? "Подключаем…" : "Connecting…") : activeMode === "signup" ? (locale === "ru" ? "Создать профиль" : "Create profile") : (locale === "ru" ? "Войти" : "Log in")}</button>
           </form>
-          <small>{locale === "ru" ? "Демо-профиль хранится на этом устройстве. Пароль не сохраняется." : "Your profile is stored on this device for this demo. Passwords are never saved."}</small>
+          <small>{locale === "ru" ? "Защищённая авторизация Supabase. Пароль не хранится на сайте." : "Secure Supabase authentication. Your password is never stored by the site."}</small>
         </div>
       </div>
     </div>

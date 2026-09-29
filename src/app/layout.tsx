@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { LocaleProvider } from "../components/LocaleProvider/LocaleProvider";
+import { AuthProvider } from "../components/AuthProvider/AuthProvider";
 import "./globals.scss";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body><LocaleProvider>{children}</LocaleProvider></body>
+      <body><LocaleProvider><AuthProvider>{children}</AuthProvider></LocaleProvider></body>
     </html>
   );
 }
