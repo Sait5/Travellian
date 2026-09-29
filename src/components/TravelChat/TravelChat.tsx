@@ -1,11 +1,13 @@
 "use client";
 
-import { CheckCircle2, Clock3, LoaderCircle, MessageCircle, Send, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { BriefcaseBusiness, CheckCircle2, Clock3, LoaderCircle, MessageCircle, Send, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../AuthProvider/AuthProvider";
 import { useLocale } from "../LocaleProvider/LocaleProvider";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { TripDraft, useTripDraft } from "../../lib/tripDraft";
 import styles from "./TravelChat.module.scss";
+import brief from "./TripBrief.module.scss";
 
 type Conversation = {
   id: string; traveler_id: string; subject: string; destination: string | null;
@@ -15,15 +17,30 @@ type Conversation = {
 type Message = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string; read_at: string | null };
 type Profile = { id: string; full_name: string; email: string };
 
+function draftEstimate(draft: TripDraft) {
+  const daily = (draft.planPrice ?? 0) + (draft.hotelPrice ?? 0);
+  return daily && draft.days ? daily * draft.days * (draft.travelers ?? 1) : 0;
+}
+
+function draftMessage(draft: TripDraft, locale: "en" | "ru") {
+  const estimate = draftEstimate(draft);
+  const rows = locale === "ru"
+    ? ["Новый запрос на поездку", `Направление: ${draft.city}, ${draft.country}`, draft.hotelName && `Отель: ${draft.hotelName} (€${draft.hotelPrice}/ночь)`, draft.placeName && `Место в маршруте: ${draft.placeName}`, draft.plan && `Тариф: ${draft.plan} (€${draft.planPrice}/день)`, draft.travelDate && `Дата: ${draft.travelDate}`, draft.travelers && `Путешественники: ${draft.travelers}`, estimate && `Предварительная оценка: от €${estimate}`]
+    : ["New journey request", `Destination: ${draft.city}, ${draft.country}`, draft.hotelName && `Hotel: ${draft.hotelName} (€${draft.hotelPrice}/night)`, draft.placeName && `Place on the route: ${draft.placeName}`, draft.plan && `Plan: ${draft.plan} (€${draft.planPrice}/day)`, draft.travelDate && `Date: ${draft.travelDate}`, draft.travelers && `Travelers: ${draft.travelers}`, estimate && `Preliminary estimate: from €${estimate}`];
+  return rows.filter(Boolean).join("\n");
+}
+
 export default function TravelChat({ consultantView = false }: { consultantView?: boolean }) {
   const { locale } = useLocale();
   const { traveler, loading: authLoading } = useAuth();
+  const { draft, clearDraft } = useTripDraft();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sharingDraft, setSharingDraft] = useState(false);
   const [error, setError] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const isConsultant = traveler?.role === "consultant";
@@ -103,8 +120,29 @@ export default function TravelChat({ consultantView = false }: { consultantView?
     else setConversations((current) => current.map((item) => item.id === selectedId ? { ...item, status } : item));
   }
 
+  async function shareTripDraft() {
+    if (!draft || !traveler || !selectedId || isConsultant || sharingDraft) return;
+    setSharingDraft(true);
+    setError("");
+    const subject = [draft.plan, draft.hotelName].filter(Boolean).join(" · ") || (locale === "ru" ? "Новый маршрут" : "New journey");
+    const body = draftMessage(draft, locale);
+    const [conversationResult, messageResult] = await Promise.all([
+      supabase.from("conversations").update({ destination: draft.city, subject, status: "open" }).eq("id", selectedId),
+      supabase.from("messages").insert({ conversation_id: selectedId, sender_id: traveler.id, body }).select().single(),
+    ]);
+    setSharingDraft(false);
+    if (conversationResult.error || messageResult.error) {
+      setError(conversationResult.error?.message || messageResult.error?.message || "Could not share the trip draft");
+      return;
+    }
+    const sent = messageResult.data as Message;
+    setMessages((current) => current.some((item) => item.id === sent.id) ? current : [...current, sent]);
+    setConversations((current) => current.map((item) => item.id === selectedId ? { ...item, destination: draft.city, subject, status: "open" } : item));
+    clearDraft();
+  }
+
   if (authLoading || (traveler && loading)) return <section className={styles.state}><LoaderCircle className={styles.spinner}/><p>{locale === "ru" ? "Подключаем защищённый чат…" : "Connecting your secure chat…"}</p></section>;
-  if (!traveler) return <section className={styles.state}><MessageCircle/><h2>{locale === "ru" ? "Войдите, чтобы написать консультанту" : "Sign in to message a consultant"}</h2><p>{locale === "ru" ? "Переписка сохраняется в вашем профиле и доступна с любого устройства." : "Your conversation stays in your profile and is available on every device."}</p><button onClick={() => window.dispatchEvent(new Event("travellian:auth-required"))}>{locale === "ru" ? "Войти или зарегистрироваться" : "Sign in or create account"}</button></section>;
+  if (!traveler) return <section className={styles.state}>{draft ? <BriefcaseBusiness/> : <MessageCircle/>}<h2>{draft ? (locale === "ru" ? "Черновик поездки сохранён" : "Your journey draft is saved") : (locale === "ru" ? "Войдите, чтобы написать консультанту" : "Sign in to message a consultant")}</h2><p>{draft ? `${draft.city}, ${draft.country} · ${[draft.hotelName, draft.plan, draft.travelers ? `${draft.travelers} ${locale === "ru" ? "чел." : "travelers"}` : ""].filter(Boolean).join(" · ")}${draftEstimate(draft) ? ` · ${locale === "ru" ? "от" : "from"} €${draftEstimate(draft)}` : ""}` : (locale === "ru" ? "Переписка сохраняется в вашем профиле и доступна с любого устройства." : "Your conversation stays in your profile and is available on every device.")}</p><button onClick={() => window.dispatchEvent(new Event("travellian:auth-required"))}>{draft ? (locale === "ru" ? "Войти и отправить консультанту" : "Sign in and share with consultant") : (locale === "ru" ? "Войти или зарегистрироваться" : "Sign in or create account")}</button></section>;
   if (consultantView && !isConsultant) return <section className={styles.state}><ShieldCheck/><h2>{locale === "ru" ? "Этот кабинет доступен консультанту" : "This desk is for consultants"}</h2><p>{locale === "ru" ? "Откройте обычный чат из меню профиля." : "Open the traveler chat from your profile menu."}</p></section>;
 
   const activeConversation = conversations.find((item) => item.id === selectedId);
@@ -115,7 +153,13 @@ export default function TravelChat({ consultantView = false }: { consultantView?
       <div className={styles.secure}><ShieldCheck/><span><strong>{locale === "ru" ? "Приватная переписка" : "Private conversation"}</strong><small>{locale === "ru" ? "Доступ только у вас и команды Travellian" : "Only you and the Travellian team have access"}</small></span></div>
     </aside>
     <div className={styles.chat}>
-      <header className={styles.chatHead}><div><span className={styles.online}/><div><strong>{isConsultant ? activeConversation?.travelerName || activeConversation?.travelerEmail || "Traveler" : "Anna Petrova"}</strong><small>{locale === "ru" ? "онлайн · Travellian" : "online · Travellian"}</small></div></div>{isConsultant && activeConversation && <select value={activeConversation.status} onChange={(event) => void setStatus(event.target.value as Conversation["status"])}><option value="open">{locale === "ru" ? "Открыт" : "Open"}</option><option value="waiting">{locale === "ru" ? "Ждём клиента" : "Waiting"}</option><option value="closed">{locale === "ru" ? "Закрыт" : "Closed"}</option></select>}</header>
+      <header className={styles.chatHead}><div><span className={styles.online}/><div><strong>{isConsultant ? activeConversation?.travelerName || activeConversation?.travelerEmail || "Traveler" : "Anna Petrova"}</strong><small>{activeConversation?.destination ? `${activeConversation.destination} · ${activeConversation.subject}` : locale === "ru" ? "онлайн · Travellian" : "online · Travellian"}</small></div></div>{isConsultant && activeConversation && <select value={activeConversation.status} onChange={(event) => void setStatus(event.target.value as Conversation["status"])}><option value="open">{locale === "ru" ? "Открыт" : "Open"}</option><option value="waiting">{locale === "ru" ? "Ждём клиента" : "Waiting"}</option><option value="closed">{locale === "ru" ? "Закрыт" : "Closed"}</option></select>}</header>
+      {draft && !isConsultant && activeConversation ? <div className={brief.tripBrief}>
+        <BriefcaseBusiness/>
+        <div><small>{locale === "ru" ? "ЧЕРНОВИК ПОЕЗДКИ" : "JOURNEY DRAFT"}</small><strong>{draft.city}, {draft.country}</strong><p>{[draft.hotelName, draft.placeName, draft.plan, draft.travelDate, draft.travelers ? `${draft.travelers} ${locale === "ru" ? "чел." : "travelers"}` : ""].filter(Boolean).join(" · ")}</p></div>
+        {draftEstimate(draft) ? <span>{locale === "ru" ? "от" : "from"} €{draftEstimate(draft)}</span> : null}
+        <button type="button" onClick={() => void shareTripDraft()} disabled={sharingDraft}>{sharingDraft ? (locale === "ru" ? "Отправляем…" : "Sharing…") : (locale === "ru" ? "Отправить консультанту" : "Share with consultant")}</button>
+      </div> : null}
       <div className={styles.messages} aria-live="polite">
         {!messages.length && activeConversation && <div className={styles.welcome}><Sparkles/><h3>{locale === "ru" ? "Начнём с вашей идеи" : "Let’s start with your idea"}</h3><p>{locale === "ru" ? "Расскажите, куда и когда хотите поехать. Консультант уточнит бюджет, темп и пожелания к отелю." : "Tell us where and when you want to travel. Your consultant will clarify budget, pace and hotel preferences."}</p></div>}
         {messages.map((message) => { const own = message.sender_id === traveler.id; return <article className={own ? styles.ownMessage : styles.otherMessage} key={message.id}><p>{message.body}</p><span>{new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}{own && <CheckCircle2/>}</span></article>; })}
