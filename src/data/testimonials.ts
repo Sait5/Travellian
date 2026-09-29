@@ -1,0 +1,5 @@
+export const testimonials = [
+  { id: 1, name: "Eleanor Peña", profession: "Product designer", text: "Travellian found the kind of places we would never have discovered on our own. Every detail felt considered, yet the trip still felt entirely ours.", rating: 5, avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=85" },
+  { id: 2, name: "Marcus Reed", profession: "Photographer", text: "The itinerary had the perfect rhythm: enough guidance to feel effortless, and enough open space to follow whatever caught our attention.", rating: 5, avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=85" },
+  { id: 3, name: "Sofia Bennett", profession: "Editorial director", text: "From the tiny hotel in Lisbon to the family-run restaurant in Rome, every recommendation was memorable for the right reasons.", rating: 5, avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=85" },
+];

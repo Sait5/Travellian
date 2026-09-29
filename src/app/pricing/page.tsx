@@ -1,0 +1,21 @@
+"use client";
+import { Check, MapPin } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import Footer from "../../components/Footer/Footer";
+import Header from "../../components/Header/Header";
+import ScrollReveal from "../../components/ScrollReveal/ScrollReveal";
+import { useLocale } from "../../components/LocaleProvider/LocaleProvider";
+import { destinations } from "../../data/destinations";
+import styles from "../InnerPages.module.scss";
+import extra from "./PricingExtra.module.scss";
+
+const plans=[{name:"Essential",nameRu:"Основной",price:"€95",tag:"SMART START",tagRu:"УМНЫЙ СТАРТ",items:["Curated day-by-day route","Stay recommendations","Local map and notes"],itemsRu:["Маршрут по дням","Проверенные отели","Карта и местные заметки"]},{name:"Comfort",nameRu:"Комфорт",price:"€145",tag:"MOST LOVED",tagRu:"ЧАЩЕ ВЫБИРАЮТ",items:["Everything in Essential","Restaurant reservations","Private arrival transfer","Live trip support"],itemsRu:["Всё из тарифа «Основной»","Бронирование ресторанов","Индивидуальный трансфер","Поддержка в поездке"]},{name:"Signature",nameRu:"Персональный",price:"€235",tag:"FULLY PERSONAL",tagRu:"ПОЛНОСТЬЮ ЛИЧНЫЙ",items:["Everything in Comfort","Dedicated travel designer","Priority experiences","24/7 concierge"],itemsRu:["Всё из тарифа «Комфорт»","Личный тревел-дизайнер","Приоритетные впечатления","Консьерж 24/7"]}];
+
+export default function PricingPage(){
+  const{locale}=useLocale();
+  const[selected,setSelected]=useState("");
+  useEffect(()=>{setSelected(new URLSearchParams(window.location.search).get("destination")??"")},[]);
+  const destination=destinations.find(item=>item.slug===selected);
+  return <main className={styles.page}><Header/><section className={styles.hero} style={{backgroundImage:'url("https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=2000&q=88")'}}><div className={`container ${styles.heroContent}`}><span className={styles.eyebrow}>{locale==="ru"?"ВСЁ ПОНЯТНО С САМОГО НАЧАЛА":"CLEAR FROM THE START"}</span><h1>{locale==="ru"?"Планирование, которое действительно помогает.":"Planning that earns its place."}</h1><p>{locale==="ru"?"Выберите нужный уровень поддержки. Каждый маршрут остаётся личным, полезным и гибким.":"Choose how much support you want. Every level keeps the itinerary personal, useful and easy to change."}</p></div></section><section className={styles.content}><div className="container">{destination&&<div className={extra.selectedTrip}><MapPin/><div><small>{locale==="ru"?"ВЫБРАННЫЙ МАРШРУТ":"SELECTED JOURNEY"}</small><strong>{destination.city}, {destination.country}</strong></div><span>{destination.days} {locale==="ru"?"дней":"days"} · {locale==="ru"?"от":"from"} €{destination.price}</span></div>}<div className={styles.headingRow}><h2>{locale==="ru"?"Выберите свой ритм":"Choose your pace"}</h2><p>{locale==="ru"?"Цена указана за путешественника в день. После выбора тарифа консультант уточнит детали поездки.":"Pricing is per traveler, per day. After plan selection, a consultant will confirm the journey details."}</p></div><div className={styles.pricing}>{plans.map((plan,index)=><article className={`${styles.plan} ${index===1?styles.featured:""}`} key={plan.name}><span>{locale==="ru"?plan.tagRu:plan.tag}</span><h2>{locale==="ru"?plan.nameRu:plan.name}</h2><div className={styles.price}>{plan.price}<small> / {locale==="ru"?"день":"day"}</small></div><ul>{(locale==="ru"?plan.itemsRu:plan.items).map(item=><li key={item}><Check size={18}/>{item}</li>)}</ul><Link href={destination?`/travel?destination=${destination.slug}&plan=${plan.name.toLowerCase()}`:"/travel"}>{locale==="ru"?"Выбрать тариф":"Choose plan"}</Link></article>)}</div></div></section><Footer/><ScrollReveal/></main>;
+}
