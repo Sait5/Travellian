@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Travellian
 
-## Getting Started
+Современный сервис для планирования персональных путешествий. Пользователь может выбрать направление, изучить реальные достопримечательности и отели, собрать черновик поездки, подобрать тариф и обсудить маршрут с консультантом в защищённом чате.
 
-First, run the development server:
+## Рабочая версия
+
+**[Открыть Travellian](https://client-ten-ivory-39.vercel.app)**
+
+## Возможности
+
+- каталог направлений с фильтрацией и подробными страницами городов;
+- реальные достопримечательности и отели для каждого направления;
+- выбор даты и количества путешественников;
+- сохранение выбранного отеля, места и тарифа в единый черновик поездки;
+- предварительный расчёт стоимости путешествия;
+- регистрация и авторизация пользователей;
+- личный кабинет путешественника;
+- защищённый чат путешественника с консультантом;
+- отдельный кабинет консультанта со списком обращений и статусами;
+- переключение между русским и английским языками;
+- адаптивная вёрстка и анимации интерфейса;
+- уведомление о том, что онлайн-оплата пока недоступна.
+
+## Основной сценарий
+
+1. Пользователь выбирает город.
+2. Изучает достопримечательности и подходящие отели.
+3. Указывает дату и количество путешественников.
+4. Выбирает тариф.
+5. Получает итоговый черновик с предварительной стоимостью.
+6. Авторизуется и отправляет запрос консультанту.
+7. Консультант видит обращение и продолжает обсуждение в чате.
+
+## Технологии
+
+- Next.js 16;
+- React 19;
+- TypeScript;
+- SCSS Modules;
+- Supabase: авторизация, база данных, политики доступа и сообщения в реальном времени;
+- Vercel: сборка и публикация проекта;
+- ESLint.
+
+## Локальный запуск
+
+Требуется Node.js 20 или новее.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+После запуска проект будет доступен по адресу [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Для работы авторизации и чата необходимо создать файл `.env.local` и добавить переменные окружения Supabase:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+POSTGRES_URL=...
+POSTGRES_URL_NON_POOLING=...
+```
 
-## Learn More
+Подготовка таблиц и политик доступа:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+node --env-file=.env.local scripts/setup-supabase.mjs
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Проверка проекта
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npm run build
+```
 
-## Deploy on Vercel
+## Структура
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```text
+src/app/          страницы приложения
+src/components/   интерфейсные компоненты
+src/data/         направления, отели и материалы журнала
+src/lib/          работа с Supabase и черновиком поездки
+scripts/          настройка структуры базы данных
+public/           изображения и видео
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Статус
+
+Основной пользовательский сценарий, авторизация, кабинеты и чат работают. Подключение реальной платёжной системы оставлено для следующего этапа.
